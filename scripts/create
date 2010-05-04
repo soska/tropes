@@ -1,0 +1,239 @@
+<?php
+define('DS',DIRECTORY_SEPARATOR);
+
+main();
+
+function main(){
+	global $argv, $argc;
+
+	if ($argc < 2) {
+		out("too few arguments. \nUsage: create [trope | ctype] [arguments]");
+		die;
+	}
+
+	$method = "create_".$argv[1];
+	$args = array_slice($argv,2);
+
+	call_user_func_array($method,$args);
+
+}
+
+function create_trope($name = null){
+
+	if (!$name) {
+		out("you should define a name for the trope");
+		die;
+	}
+
+	$r = func_get_args();
+	$contentTypes = array();
+	
+	if (count($r) > 1) {
+		$contentTypes = array_slice($r,1);
+	}
+
+	if (empty($contentTypes)) {
+		$i = ask('Want to add custom content types?');
+		if ($i) {
+			$contentTypes = prompt("Type the content types you want created (space separated)");
+			$contentTypes = explode(" ",$contentTypes);
+		}
+		
+	}
+
+
+	$base = get_tropes_dir();
+	$dir = $base.DS.$name;
+	$fileName = $dir.DS.$name.".php";
+
+	if (!is_dir($dir)) {
+		mkdir($dir);
+	}
+	
+	if (file_exists($fileName)) {
+		$overwrite = ask('file '.$fileName.' already exists, overwrite?');
+		if (!$overwrite) {
+			die;
+		}
+	}
+		
+	$className = ucfirst($name)."Trope";
+	
+	$output  = "<?php\n";
+	$output .= "require_once(dirname(dirname(__FILE__)).'/lib/bootstrap.php');\n\n";
+	$output .= "class $className extends DuperrificTrope{\n\n";
+	$output .= "\tvar \$contentTypes = array(\n";
+	foreach ($contentTypes as $type) {
+		$output.= "\t\t\t'".ucfirst($type)."',\n";
+	}
+	$output .= "\t\t);\n\n";
+	$output .= "}\n\n";
+	$output .= "global \$Trope;\n\$Trope = new $className;";
+	$output .= "?>";
+	
+	echo 'generating trope config at '.$fileName;
+	$success = file_put_contents($fileName,$output);
+	out('. done.');	
+	
+	foreach ($contentTypes as $contentType) {
+		create_ctype($contentType,$name);
+	}	
+	
+	return $success;
+}
+
+function create_ctype($plural, $trope = null){
+
+	$base = get_tropes_dir();	
+
+	// if no trope is passed, ask the user for one.
+	if (!$trope) {
+		$troope = choose_a_trope();
+	}
+
+	// create the directory
+	$dir = $base.DS.$trope.DS.('content_types');	
+	if (!is_dir($dir)) {
+		mkdir($dir);
+	}
+	
+	// try to guess the singular label, it may not work so ask the user.
+	$singular = dumb_inflect($plural);	
+	if (!ask("is '$singular' the singular form of $plural?")) {
+		$singular = prompt("What is it?");
+	}
+
+
+	$fileName = $dir.DS.$plural.".php";
+	
+	if (file_exists($fileName)) {
+		$overwrite = ask('file '.$fileName.' already exists, overwrite?');
+		if (!$overwrite) {
+			die;
+		}
+	}
+		
+	$className = ucfirst($plural);
+	
+	$output  = "<?php\n";
+	$output .= "class $className extends DuperrificContentType{\n\n";
+
+	// write features property 
+	$output .= "\t// This are the features shown on the editor\n";
+	$output .= "\tvar \$features = array(\n";
+	$output.= "\t\t\t'editor',\n";
+	$output.= "\t\t\t'title',\n";
+	$output.= "\t\t\t'thumbnail',\n";
+	$output .= "\t\t);\n\n";
+
+	// empty metaboxes property 
+	$output .= "\t// Custom metaboxes for custom fields. They are saved automagically\n";
+	$output .= "\tvar \$metaboxes = array(\n";
+	$output .= "\t\t);\n\n";
+
+	$output .= "}\n\n";
+
+	// create helper functions
+	$output .= "// this are helper functions to easy access your content types from your templates\n\n";
+	
+	$output .= "function have_$plural(){
+	global \${$className};
+	return \${$className}->have_posts();
+}\n\n";
+
+	$output .= "function the_$singular(){
+	global \${$className};
+	return \${$className}->the_post();
+}\n\n";
+
+	$output .= "function get_{$singular}_meta(\$key, \$echo = true){
+		global \${$className};
+	\$meta  = \${$className}->get_meta(\$key);
+	if (\$echo) {
+		echo \$meta;
+	}
+	return \$meta;
+}\n\n";
+
+	$output .= "?>";
+	
+	echo 'generating content type class file at '.$fileName;
+	$success = file_put_contents($fileName,$output);
+	if ($success) {
+		out('. done.');	
+	}else{
+		out('. ERROR writing file.');			
+	}
+
+	return $success;			
+
+}
+
+
+function choose_a_trope(){
+	$base = get_tropes_dir();	
+	
+	chdir($base);
+	$folders = glob("*",GLOB_ONLYDIR);
+	$tropes = array_diff($folders,array('lib','scripts'));
+
+	if (empty($tropes)) {
+		out("No tropes defined. Create a trope first with the 'create trope' command");
+		out();
+		die;
+	}else{
+
+		$question  = "Which Trope is this content type for?\n";
+		foreach ($tropes as $trope) {
+			$question.= "\t $trope\n";
+		}
+
+		$gotit  = false;
+		while (!$gotit) {
+			$trope = prompt($question);
+			if (in_array($trope,$tropes)) {
+				$gotit = true;
+			}
+		}			
+	}
+	return $trope;	
+}
+
+function dumb_inflect($word){
+	return substr($word,0,-1);
+}
+
+function get_tropes_dir(){
+	return dirname(dirname(__FILE__));
+}
+
+function prompt($msg){
+	out("- ".$msg);
+	$response = fgets(STDIN);	
+	return trim($response);
+}
+
+function ask($msg,$default = "Y"){
+	$i = prompt($msg." (Y/n) [".$default."]");
+	// $i = trim($i);
+
+	if (empty($i)){
+		$i = $default;
+	}
+
+	return ($i == "Y");
+}
+
+function out($str = "\n----"){
+	// echo "\n";
+	echo $str;
+	echo "\n";
+}
+
+function pr($var){
+	echo "\n -- \n";
+	print_r($var);
+	echo "\n -- \n";
+}
+
+?>
