@@ -14,7 +14,12 @@ function main(){
 	$method = "create_".$argv[1];
 	$args = array_slice($argv,2);
 
+	
+	out("\n---------  Duperrific Tropes ----------\n");
+
 	call_user_func_array($method,$args);
+
+	out("\n---------------------------------------\n");
 
 }
 
@@ -28,12 +33,14 @@ function create_trope($name = null){
 	$r = func_get_args();
 	$contentTypes = array();
 	
+	
 	if (count($r) > 1) {
 		$contentTypes = array_slice($r,1);
 	}
 
+
 	if (empty($contentTypes)) {
-		$i = ask('Want to add custom content types?');
+		$i = ask('Do you want custom content types with your Trope?');
 		if ($i) {
 			$contentTypes = prompt("Type the content types you want created (space separated)");
 			$contentTypes = explode(" ",$contentTypes);
@@ -79,6 +86,8 @@ function create_trope($name = null){
 		create_ctype($contentType,$name);
 	}	
 	
+	create_config($name); 
+	
 	return $success;
 }
 
@@ -123,7 +132,7 @@ function create_ctype($plural, $trope = null){
 	$output .= "\tvar \$features = array(\n";
 	$output.= "\t\t\t'editor',\n";
 	$output.= "\t\t\t'title',\n";
-	$output.= "\t\t\t'thumbnail',\n";
+	$output.= "\t\t\t'thumbnail', // needs to be supported by the theme\n";
 	$output .= "\t\t);\n\n";
 
 	// empty metaboxes property 
@@ -167,6 +176,59 @@ function create_ctype($plural, $trope = null){
 
 	return $success;			
 
+}
+
+function create_config($trope){
+	
+	// first find the wp-config.
+	$configFileName = false;
+	$dir = dirname(__FILE__);
+	$nesting = 5;
+	$count = 0;
+	while (!$configFileName) {
+
+		$count++;
+		if ($count > $nesting) {
+			break;
+		}
+
+		$fileName = $dir.DS."wp-config.php";
+		if (file_exists($fileName)) {
+			$configFileName = $fileName;
+		}else{
+			$dir = dirname($dir);			
+		}
+	}
+
+	// get the path to the trope
+	$tropesDir = get_tropes_dir();
+	list($prefix, $tropesDir) = explode("wp-content",$tropesDir);
+	$tropesDir = $tropesDir.DS."$trope/$trope.php";
+
+	// the snippet we are inserting into the WP-CONFIG
+	$snippet  = "\n/** This line includes the $trope trope */\n";
+	$snippet .= "require_once(WP_CONTENT_DIR.'$tropesDir');\n";
+
+	if ($configFileName) {
+		$wpConfigContents  = file_get_contents($configFileName);
+		$wpConfigContents .= $snippet;
+		$success = file_put_contents($configFileName,$wpConfigContents);
+		
+		echo 'editing wp-config.php at ';
+		$success = file_put_contents($fileName,$output);
+		
+		if ($success) {
+			out('. done.');					
+			return $success;
+		}
+	}
+	
+	out("\nSorry. I can't write to the WP-Config file");
+	out("If you can, just copy/paste the next line");
+	out($snippet);
+
+	return false;
+	
 }
 
 
