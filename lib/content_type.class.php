@@ -142,16 +142,32 @@ class DuperrificContentType{
 		return ($this->name == $post->post_type);
 	}
 
-	function have_posts(){		
+	function have_posts(){	
+		
+		if (!$this->Query) {
+			if ($this->inTheLoop()) {
+				return have_posts();
+			}
+
+			if (!$this->Query) {
+				$this->get();
+			}		
+		}	
+		
+		return $this->Query->have_posts();
+	}
+
+	function rewind_posts(){		
 		
 		if ($this->inTheLoop()) {
-			return have_posts();
+			return rewind_posts();
 		}
 		
 		if (!$this->Query) {
 			$this->get();
 		}		
-		return $this->Query->have_posts();
+		
+		return $this->Query->rewind_posts();
 	}
 
 	function the_post(){
