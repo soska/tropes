@@ -215,7 +215,7 @@ function create_config($trope){
 		$success = file_put_contents($configFileName,$wpConfigContents);
 		
 		echo 'editing wp-config.php at ';
-		$success = file_put_contents($fileName,$output);
+		$success = file_put_contents($fileName,$snippet);
 		
 		if ($success) {
 			out('. done.');					
