@@ -212,10 +212,9 @@ function create_config($trope){
 	if ($configFileName) {
 		$wpConfigContents  = file_get_contents($configFileName);
 		$wpConfigContents .= $snippet;
-		$success = file_put_contents($configFileName,$wpConfigContents);
 		
 		echo 'editing wp-config.php at ';
-		$success = file_put_contents($fileName,$snippet);
+		$success = file_put_contents($configFileName,$wpConfigContents);
 		
 		if ($success) {
 			out('. done.');					
