@@ -9,6 +9,7 @@ class DuperrificContentType{
 	
 	var $name = null;
 	var $options = array();
+	var $labels;
 	var $categories;
 	var $tags;
 	var $object;
@@ -53,6 +54,7 @@ class DuperrificContentType{
 				'label'=>ucfirst($this->name),
 				'singular_label'=>ucfirst(dumb_inflect($this->name)),
 				'id'=>"menu-".$this->name,
+				'labels'=>$this->labels,
 				// 'rewrite'=>false,
 				'register_meta_box_cb'=>array($this,'initMetaboxes'),
 				'supports'=>$this->features,
@@ -61,7 +63,7 @@ class DuperrificContentType{
 				
 		$this->setup();
 		
-		$this->object = register_post_type($this->name, $this->options);		
+		$this->object = register_post_type($this->name, $this->options);	
 
 		add_action('_admin_menu',array($this,'setMenuId'));
 		add_action('save_post', array($this,'save'));			
@@ -297,7 +299,7 @@ class DuperrificContentType{
 			$options = $this->defaultMetaboxOptions($box,$options);
 			
 			if (!isset($options['label'])) {
-				$options['label'] = $options['type'];
+				$options['label'] = $options['title'];
 			}
 			
 			add_meta_box($box,$options['title'],$options['callback'],$options['page'],$options['context'],$options['priority']);
@@ -410,6 +412,7 @@ class DuperrificContentType{
 		
 		foreach ($boxes as $id=>$box) {
 			extract($box);
+			
 			if (isset($meta[$id])) {
 				if ( !isset($_POST[underscorize($id)."_wpnonce"]) || !wp_verify_nonce( $_POST[underscorize($id)."_wpnonce"], $id )) {  
 					return $postId;  
@@ -428,7 +431,7 @@ class DuperrificContentType{
 						$data .= " $hour:$mins:00";
 					}
 				}
-				
+								
 				// let's make available a callback for the developer
 				if (!empty($box['beforeSave'])  && is_callable($box['beforeSave']) ) {
 					$data = call_user_func_array($box['beforeSave'],array($data,$id,$postId,$this));
@@ -472,6 +475,28 @@ class DuperrificContentType{
 	function __textareaInput($box,$fieldName,$value){
 		echo csml::entag($value,'textarea',array('name'=>$fieldName));				
 	}
+
+
+	function __checkboxInput($box,$fieldName,$value){
+		$attributes =  (isset($box['attributes'])) ? $box['attributes'] :  array();
+		$attributes['name']=$fieldName;
+
+		$value = (empty($value))?0:1;
+
+		$attributes['value'] = 0;
+		echo csml::tag('input[type="hidden"]',$attributes);						
+		
+		if ($value) {
+			$attributes['checked'] = "checked";
+		}
+		
+		$attributes['value'] = 1;
+		echo "<label>";
+		echo csml::tag('input[type="checkbox"]',$attributes);						
+		echo "{$box['label']}</label>";
+		
+	}
+	
 
 	function __datetimeInput($box,$fieldName,$value){
 		$this->__dateInput($box,$fieldName,$value);
