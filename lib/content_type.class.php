@@ -94,12 +94,7 @@ class DuperrificContentType{
 	function get($queryArgs = null){
 
 		$defaults = array(
-			'numberposts' => 5, 'offset' => 0,
-			'category' => 0, 'orderby' => 'post_date',
-			'order' => 'DESC', 'include' => '',
-			'exclude' => '', 'meta_key' => '',
-			'meta_value' =>'', 'post_type' => $this->name,
-			'suppress_filters' => true,
+			'post_type' => $this->name,
 		);
 		
 		$paged = intval(get_query_var('paged'));
@@ -117,76 +112,22 @@ class DuperrificContentType{
 		}
 
 		$queryArgs = wp_parse_args( $queryArgs, $defaults );
-		$this->Query = new WP_QUERY($queryArgs);
+
+		$posts = query_posts($queryArgs);
 		
 		if (isset($queryArgs['name'])) {
 			$GLOBALS['wp_query']->is_single = true;
 		}
 		
 		// remove the 404 from the main wp_query object
-		if (is_single() && $this->Query->have_posts()) {
+		if (is_single() && !empty($post)) {
 			$GLOBALS['wp_query']->is_404 = false;
 		}
+		
 		return $this->Query;
 	}
 
-	/**
-	 * undocumented function
-	 *
-	 * @return void
-	 * @author Armando Sosa
-	 */
-	function inTheLoop(){
-		if (!is_single()) {
-			return false;
-		}
-		global $post;
-		return ($this->name == $post->post_type);
-	}
 
-	function have_posts(){	
-		
-		if (!$this->Query) {
-			if ($this->inTheLoop()) {
-				return have_posts();
-			}
-
-			if (!$this->Query) {
-				$this->get();
-			}		
-		}	
-		
-		return $this->Query->have_posts();
-	}
-
-	function rewind_posts(){		
-		
-		if ($this->inTheLoop()) {
-			return rewind_posts();
-		}
-		
-		if (!$this->Query) {
-			$this->get();
-		}		
-		
-		return $this->Query->rewind_posts();
-	}
-
-	function the_post(){
-		
-		if ($this->inTheLoop()) {
-			global $post;
-			the_post();
-			$this->current = $post;
-		}else{
-			$this->Query->the_post();		
-			$this->current = $this->Query->post;			
-		}		
-
-		$this->grabMetaFromId($this->current->ID);
-		
-		return $this->current;
-	}
 	
 	function grabMetaFromId( $postId = null){
 		if (!$postId) {
@@ -206,7 +147,10 @@ class DuperrificContentType{
 		}		
 	}
 	
-	function get_meta($key = null){
+	function getMeta($key = null, $postId = null){
+
+		$this->grabMetaFromId($postId);
+		
 		if (!$key) {
 			return $this->currentMeta;
 		}

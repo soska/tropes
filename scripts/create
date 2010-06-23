@@ -144,20 +144,30 @@ function create_ctype($plural, $trope = null){
 
 	// create helper functions
 	$output .= "// this are helper functions to easy access your content types from your templates\n\n";
-	
-	$output .= "function have_$plural(){
-	global \${$className};
-	return \${$className}->have_posts();
-}\n\n";
+/*
+	function get_talks($query = null){
+		global $Talks;
+		return $Talks->get($query);
+	}
 
-	$output .= "function the_$singular(){
+
+	function get_talk_meta($key, $echo = true){
+		global $Talks;
+		$meta  = $Talks->getMeta($key);
+		if ($echo) {
+			echo $meta;
+		}
+		return $meta;
+	}
+*/	
+	$output .= "function get_$plural(){
 	global \${$className};
-	return \${$className}->the_post();
+	return \${$className}->get();
 }\n\n";
 
 	$output .= "function get_{$singular}_meta(\$key, \$echo = true){
 		global \${$className};
-	\$meta  = \${$className}->get_meta(\$key);
+	\$meta  = \${$className}->getMeta(\$key);
 	if (\$echo) {
 		echo \$meta;
 	}
@@ -231,6 +241,71 @@ function create_config($trope){
 }
 
 
+function create_theme($name = null){
+
+	if (!$name) {
+		out("you should define a name for your new theme");
+		die;
+	}
+
+	$properties = array();
+	
+	$properties['author_name'] = prompt("Type the author name");
+	$properties['description'] = prompt("Type the description");
+	$properties['version'] = "1.0";
+	$properties['tags'] = "tropes";
+
+	$base = get_themes_dir();
+	$dir = $base.DS.$name;
+	$index = $dir.DS."index.php";
+	$functions = $dir.DS."functions.php";
+	$styles = $dir.DS."style.css";
+
+	if (!is_dir($dir)) {
+		mkdir($dir);
+	}
+	
+	
+	echo 'generating index.php ';
+	$success = file_put_contents($index,"//index.php");
+	if ($success) {
+		out('. done.');	
+	}else{
+		out('. ERROR.');	
+		die;
+	}
+
+	echo 'generating functions.php ';
+	$success = file_put_contents($functions,"//functions.php");
+	if ($success) {
+		out('. done.');	
+	}else{
+		out('. ERROR.');	
+		die;
+	}
+	
+	$info  = "/*\n";
+	$info .= "Theme Name: $name\n";
+	$info .= "Theme URI: http://duperrific.com\n";
+	$info .= "Description: {$properties['description']}\n";
+	$info .= "Author: {$properties['author_name']}\n";
+	$info .= "Version: {$properties['version']}\n";
+	$info .= "Tags: {$properties['tags']}\n";
+	$info .= "*/\n\n";
+	
+	echo 'generating styles.css ';
+	$success = file_put_contents($styles,$info);
+	if ($success) {
+		out('. done.');	
+	}else{
+		out('. ERROR.');	
+		die;
+	}
+	
+	return $success;
+}
+
+
 function choose_a_trope(){
 	$base = get_tropes_dir();	
 	
@@ -266,6 +341,10 @@ function dumb_inflect($word){
 
 function get_tropes_dir(){
 	return dirname(dirname(__FILE__));
+}
+
+function get_themes_dir(){
+	return dirname(dirname(get_tropes_dir()))."/themes";
 }
 
 function prompt($msg){
