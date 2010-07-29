@@ -22,11 +22,16 @@ class DuperrificTrope{
 
 		add_action('admin_init',array($this,'excludeMenus'));
 				
+		$this->setup();	
 				
 		$this->loadContentTypes();		
 		$this->activate();				
 				
 		$this->__assets();		
+		
+	}
+	
+	function setup(){
 		
 	}
 	

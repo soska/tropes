@@ -61,6 +61,15 @@ if (!function_exists('str_starts_with')) {
 		return ($p === 0);
 	}
 }
+if (!function_exists('dot_notation')) {
+	function dot_notation($key,$expects = 2){
+		$keys = (array) $key;		
+		if (str_contains('.',$key)) {
+			$keys =  explode('.',$key);
+		}
+		return array_pad($keys,$expects-1,0);
+	}
+}
 
 
 

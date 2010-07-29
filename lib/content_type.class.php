@@ -16,6 +16,8 @@ class DuperrificContentType{
 	var $features = array();
 	var $metaboxes = array();
 	
+	var $__metaboxesDidInit = false;
+	
 	var $alwaysHideCustomFields = false;
 	
 	
@@ -71,7 +73,7 @@ class DuperrificContentType{
 		add_filter('wp_title', array($this,'titleFilter'));			
 
 		// hook to set rewrite rules;
-		add_Action('rewrite_rules_array',array($this,'rewriteFilter'));
+		add_action('rewrite_rules_array',array($this,'rewriteFilter'));
 		
 		$this->initTaxonomies();
 		
@@ -137,26 +139,44 @@ class DuperrificContentType{
 		$meta = get_post_custom($postId);
 		foreach ($this->metaboxes as $id => $box) {
 			$box = $this->defaultMetaboxOptions($id,$box);
-			if (!isset($meta[$id])) {
-				$meta[$id] = null;
-			}
-			if ($box['unique']) {
-				$meta[$id] = $meta[$id][0];
-			}
+
+			if (!isset($meta[$id])) $meta[$id] = null;
+
+			if ($box['unique'] && is_array($meta[$id])) $meta[$id] = $meta[$id][0];
+
 			$this->currentMeta[$id] = $meta[$id];
-		}		
+			
+			if ($box['multiple']) {
+				foreach ($box['multiple'] as $subid => &$subbox) {
+					$subbox = $this->defaultMetaBoxOptions($subid,$subbox);
+
+					if (!isset($meta[$subid])) $meta[$subid] = null;
+
+					if ($box['unique'] && is_array($meta[$subid])) $meta[$subid] = $meta[$subid][0];
+
+					$this->currentMeta[$subid] = $meta[$subid];
+				}
+			}
+						
+		}	
+		
 	}
 	
 	function getMeta($key = null, $postId = null){
 
 		$this->grabMetaFromId($postId);
 		
+		// if no key specified, return all the custom values fo this post
 		if (!$key) {
 			return $this->currentMeta;
-		}
+		}		
+				
 		if (isset($this->currentMeta[$key])) {
 			return $this->currentMeta[$key];
 		}
+				
+		
+		return null;
 	}
 	
 	function titleFilter($title, $sep = " : ", $seplocation = null){
@@ -235,6 +255,8 @@ class DuperrificContentType{
 	 * @author Armando Sosa
 	 */
 	function initMetaboxes(){
+		if ($this->__metaboxesDidInit) return;
+		
 		foreach ($this->metaboxes as $box => &$options) {
 			if (!is_string($box)) {
 				$box = $options;
@@ -248,6 +270,8 @@ class DuperrificContentType{
 			
 			add_meta_box($box,$options['title'],$options['callback'],$options['page'],$options['context'],$options['priority']);
 		}
+		
+		$this->__metaboxesDidInit = true;		
 	}
 	
 	function defaultMetaboxOptions($box,$options){
@@ -275,7 +299,9 @@ class DuperrificContentType{
 	 */
 	function displayMetabox($content, $metabox){
 		// only required if needed.
-		require_once(TROPES_LIB.DS.'csml.php');
+		if (!class_exists('csml')) {
+			require_once(TROPES_LIB.DS.'csml.php');
+		}
 
 		global $post;
 
@@ -287,7 +313,12 @@ class DuperrificContentType{
 		echo wp_nonce_field($box['id'],underscorize($box['id'])."_wpnonce",true,false);		
 
 		// render the correct input type
-		$method = "__{$box['type']}Input";
+		if (isset($box['method'])) {
+			$method = $box['method'];
+		}else{
+			$method = "__{$box['type']}Input";			
+		}
+
 		if (method_exists($this,$method)) {
 			$this->{$method}($box,$fieldName,$value);
 		}
@@ -342,11 +373,11 @@ class DuperrificContentType{
 	 * @author Armando Sosa
 	 */
 	function save($postId,$multiple = null){
-
 		$this->initMetaboxes();
 		if (isset($_POST['dup_meta'][$this->name])) {
 			$meta = $_POST['dup_meta'][$this->name];			
 		}
+
 		
 		if ($multiple) {
 			$boxes = $multiple;
@@ -356,7 +387,8 @@ class DuperrificContentType{
 		
 		foreach ($boxes as $id=>$box) {
 			extract($box);
-			
+
+
 			if (isset($meta[$id])) {
 				if ( !isset($_POST[underscorize($id)."_wpnonce"]) || !wp_verify_nonce( $_POST[underscorize($id)."_wpnonce"], $id )) {  
 					return $postId;  
